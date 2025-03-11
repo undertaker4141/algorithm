@@ -103,11 +103,7 @@ class Main {
     
     // 加入更多剪枝條件
     for (int i = 0; i < n - 3; i++) {
-      if (i > 0 && nums[i] == nums[i-1]) continue;
-      if (nums[i] * 4 > 0) break;  // 最小的數乘4都大於0，不可能有解
-      
       for (int j = i + 1; j < n - 2; j++) {
-        if (j > i + 1 && nums[j] == nums[j-1]) continue;
         if (nums[i] + nums[j] * 3 > 0) break;  // 剪枝
         
         int left = j + 1;
@@ -137,4 +133,3 @@ class Main {
     sc.close();
   }
 }
-  
