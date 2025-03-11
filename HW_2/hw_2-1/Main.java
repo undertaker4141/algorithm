@@ -12,7 +12,7 @@ class Main {
         private int size;
         
         public DynamicArray() {
-            data = new Pair[16];  // 初始容量
+            data = new Pair[2];  // 初始容量
             size = 0;
         }
         
