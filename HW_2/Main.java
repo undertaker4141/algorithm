@@ -1,135 +1,164 @@
+
 class Main {
-  // 優化的 HashSet 結構，使用陣列實現
-  static class CustomSet {
-    private boolean[] used;
-    private int count;
-    private static final int MAX_HASH = 20000000;  // 根據可能的組合數調整大小
-    
-    public CustomSet() {
-      used = new boolean[MAX_HASH];
-      count = 0;
-    }
-    
-    // 優化的雜湊函數，直接使用數字計算
-    private int hash(long a, long b, long c, long d) {
-      return Math.abs((int)((a * 73856093 + b * 19349663 + c * 83492791 + d) % MAX_HASH));
-    }
-    
-    // 優化的新增方法
-    public void add(long a, long b, long c, long d) {
-      int h = hash(a, b, c, d);
-      if (!used[h]) {
-        used[h] = true;
-        count++;
+  static class Pair {
+      long i, j;
+      Pair(long i, long j) {
+          this.i = i;
+          this.j = j;
       }
-    }
-    
-    public int size() {
-      return count;
-    }
+      static public boolean compare(Pair i,Pair j){
+        if(i.i == j.i||i.i == j.j||i.j == j.i||i.j ==j.j){
+          return true;
+        }
+        return false;
+      }
   }
   
-  // 優化的快速排序，使用三數取中位數
-  static void quickSort(long[] arr, int low, int high) {
-    while (low < high) {
-      if (high - low <= 10) {  // 小數組使用插入排序
-        insertionSort(arr, low, high);
-        break;
+  static class DynamicArray {
+      private Pair[] data;
+      private int size;
+      
+      public DynamicArray() {
+          data = new Pair[2];  // 初始容量
+          size = 0;
       }
-      int pi = partition(arr, low, high);
-      if (pi - low < high - pi) {
-        quickSort(arr, low, pi - 1);
-        low = pi + 1;
-      } else {
-        quickSort(arr, pi + 1, high);
-        high = pi - 1;
+      
+      public void add(Pair pair) {
+          if (size == data.length) {
+              Pair[] newData = new Pair[data.length * 2];
+              System.arraycopy(data, 0, newData, 0, data.length);
+              data = newData;
+          }
+          data[size++] = pair;
       }
-    }
+      
+      public int size() {
+          return size;
+      }
+      
+      public Pair get(int index) {
+          return data[index];
+      }
   }
   
-  // 插入排序用於小數組
-  static void insertionSort(long[] arr, int low, int high) {
-    for (int i = low + 1; i <= high; i++) {
-      long key = arr[i];
-      int j = i - 1;
-      while (j >= low && arr[j] > key) {
-        arr[j + 1] = arr[j];
-        j--;
+  static class HashTable {
+      private DynamicArray[] table;
+      private static final int SIZE = 2097152;  // 2^21
+      private static final long MOD = 2097151;  // 2^21 - 1
+      
+      public HashTable() {
+          table = new DynamicArray[SIZE];
       }
-      arr[j + 1] = key;
-    }
-  }
-  
-  // 優化的分割函數，使用三數取中位數
-  static int partition(long[] arr, int low, int high) {
-    int mid = (low + high) >>> 1;
-    // 三數取中
-    if (arr[mid] < arr[low]) swap(arr, low, mid);
-    if (arr[high] < arr[low]) swap(arr, low, high);
-    if (arr[high] < arr[mid]) swap(arr, mid, high);
-    
-    swap(arr, mid, high - 1);  // 將 pivot 藏到倒數第二個位置
-    long pivot = arr[high - 1];
-    
-    int i = low;
-    int j = high - 1;
-    while (true) {
-      while (arr[++i] < pivot);
-      while (arr[--j] > pivot);
-      if (i >= j) break;
-      swap(arr, i, j);
-    }
-    swap(arr, i, high - 1);  // 恢復 pivot
-    return i;
-  }
-  
-  static void swap(long[] arr, int i, int j) {
-    long temp = arr[i];
-    arr[i] = arr[j];
-    arr[j] = temp;
+      
+      private int hash(long key) {
+          return (int)((key + 2000000000) & MOD);  // 處理負數
+      }
+      
+      public void add(long sum,long i, long j) {
+          int index = hash(sum);
+          if (table[index] == null) {
+              table[index] = new DynamicArray();
+          }
+          table[index].add(new Pair(i, j));
+      }
+      
+      public DynamicArray get(long sum) {
+          int index = hash(sum);
+          return table[index] == null ? new DynamicArray() : table[index];
+      }
   }
   
   public static void main(String[] args) {
-    java.util.Scanner sc = new java.util.Scanner(System.in);
-    int n = sc.nextInt();
-    
-    long[] nums = new long[n];
-    for (int i = 0; i < n; i++) {
-      nums[i] = sc.nextLong();
-    }
-    
-    quickSort(nums, 0, n - 1);
-    CustomSet set = new CustomSet();
-    
-    // 加入更多剪枝條件
-    for (int i = 0; i < n - 3; i++) {
-      for (int j = i + 1; j < n - 2; j++) {
-        if (nums[i] + nums[j] * 3 > 0) break;  // 剪枝
-        
-        int left = j + 1;
-        int right = n - 1;
-        long target = -nums[i] - nums[j];
-        
-        while (left < right) {
-          long sum = nums[left] + nums[right];
-          
-          if (sum == target) {
-            set.add(nums[i], nums[j], nums[left], nums[right]);
-            left++;
-            right--;
-            
-            while (left < right && nums[left] == nums[left-1]) left++;
-            while (left < right && nums[right] == nums[right+1]) right--;
-          } else if (sum < target) {
-            left++;
-          } else {
-            right--;
-          }
+      java.util.Scanner sc = new java.util.Scanner(System.in);
+      int n = sc.nextInt();
+      long[] nums = new long[n];
+      HashTable hashTable = new HashTable();  // 創建 HashTable 實例
+      
+      // 讀取輸入
+      for (int i = 0; i < n; i++) {
+          nums[i] = sc.nextLong();
+      }
+      for(int i = 0;i<n;i++){
+        for(int j = i+1;j<n;j++){
+          long temp_sum = nums[i] + nums[j];
+          hashTable.add(temp_sum,nums[i],nums[j]);
         }
       }
+      // 排序數組
+      sort(nums);
+      
+      int counter = 0;
+
+      for (int i = 0; i < n; i++) {
+            int left = i;
+            int right = n - 1;
+            long target = 0;
+            
+            while (left < right) {
+                long sum = nums[left] + nums[right];
+                if (sum == target) {
+                    int rp_counter = 0;
+                    DynamicArray key1;
+                    DynamicArray key2;
+                    key1 = hashTable.get(nums[left]);
+                    key2 = hashTable.get(nums[right]);
+                    int key1_size = key1.size();
+                    int key2_size = key2.size();
+                    for(int m = 0;m<key1_size;m++){
+                      for(int k = m+1;k<key2_size;k++){
+                        if(Pair.compare(key1.get(m), key2.get(k))){
+                          rp_counter++;
+                        }
+                      }
+                    }
+
+
+                    counter+=key1_size*key2_size;
+                    counter-=rp_counter;
+                    rp_counter = 0;
+                    left++;
+                    right--;
+                } else if (sum < target) {
+                    left++;
+                } else {
+                    right--;
+                }
+        }
     }
-    
-    System.out.println(set.size());
-    sc.close();
+      
+      System.out.println(counter/3);
+  }
+  
+  // 實作快速排序
+  private static void sort(long[] nums) {
+      quickSort(nums, 0, nums.length - 1);
+  }
+  
+  private static void quickSort(long[] nums, int low, int high) {
+      if (low < high) {
+          int pi = partition(nums, low, high);
+          quickSort(nums, low, pi - 1);
+          quickSort(nums, pi + 1, high);
+      }
+  }
+  
+  private static int partition(long[] nums, int low, int high) {
+      long pivot = nums[high];
+      int i = low - 1;
+      
+      for (int j = low; j < high; j++) {
+          if (nums[j] < pivot) {
+              i++;
+              long temp = nums[i];
+              nums[i] = nums[j];
+              nums[j] = temp;
+          }
+      }
+      
+      long temp = nums[i + 1];
+      nums[i + 1] = nums[high];
+      nums[high] = temp;
+      
+      return i + 1;
   }
 }
