@@ -3,9 +3,12 @@ import java.util.Scanner;
 public class Main {
     private static final int MAX_WORDS = 10001;
     private static final int[] HASH_TABLE = new int[MAX_WORDS];
-    private static final boolean[] IS_WORD1 = new boolean[MAX_WORDS];
-    private static final boolean[] IS_WORD2 = new boolean[MAX_WORDS];
+    private static final byte[] WORD_FLAGS = new byte[MAX_WORDS];
     private static final int MASK = 0x7fffffff;
+    private static final int PRIME = 16777619;
+    private static char[] buffer = new char[1024];
+    private static int[] wordHashes = new int[1024];
+    private static int wordCount;
     
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -20,8 +23,14 @@ public class Main {
         
         int count = 0;
         for (int i = 0; i < n; i++) {
+            String doc1 = documents[i];
+            extractWords(doc1);
+            int[] hashes1 = new int[wordCount];
+            System.arraycopy(wordHashes, 0, hashes1, 0, wordCount);
+            int count1 = wordCount;
+            
             for (int j = i + 1; j < n; j++) {
-                if (calculateJaccard(documents[i], documents[j]) > threshold) {
+                if (calculateJaccard(hashes1, count1, documents[j]) > threshold) {
                     count++;
                 }
             }
@@ -30,120 +39,134 @@ public class Main {
         System.out.println(count);
     }
     
-    private static void resetArrays(int size) {
-        for (int i = 0; i < size; i++) {
-            HASH_TABLE[i] = 0;
-            IS_WORD1[i] = false;
-            IS_WORD2[i] = false;
+    private static void extractWords(String doc) {
+        wordCount = 0;
+        int wordStart = 0;
+        int hash = 0;
+        int len = doc.length();
+        
+        for (int i = 0; i < len; i++) {
+            char c = doc.charAt(i);
+            if (c == ' ' || i == len - 1) {
+                if (i == len - 1 && c != ' ') {
+                    hash = ((hash * PRIME) + c) & MASK;
+                }
+                if (hash != 0) {
+                    wordHashes[wordCount++] = hash;
+                }
+                hash = 0;
+                wordStart = i + 1;
+            } else {
+                hash = ((hash * PRIME) + c) & MASK;
+            }
         }
     }
     
-    private static double calculateJaccard(String doc1, String doc2) {
-        int maxHash = 1;
-        int uniqueCount = 0;
-        int intersection = 0;
+    private static double calculateJaccard(int[] hashes1, int count1, String doc2) {
+        // 重置雜湊表
+        int lastUsedHash = 0;
         
-        // 處理第一個文件
-        int wordHash = 0;
-        int len1 = doc1.length();
-        for (int i = 0; i < len1; i++) {
-            char c = doc1.charAt(i);
-            if (c == ' ' || i == len1 - 1) {
-                if (i == len1 - 1 && c != ' ') {
-                    wordHash = ((wordHash * 31) + c) & MASK;
+        // 處理第一個文件的雜湊值
+        for (int i = 0; i < count1; i++) {
+            int wordHash = hashes1[i];
+            int hash = wordHash % MAX_WORDS;
+            lastUsedHash = Math.max(lastUsedHash, hash);
+            
+            if (HASH_TABLE[hash] == wordHash) {
+                WORD_FLAGS[hash] = 1;
+                continue;
+            }
+            
+            if (HASH_TABLE[hash] == 0) {
+                HASH_TABLE[hash] = wordHash;
+                WORD_FLAGS[hash] = 1;
+                continue;
+            }
+            
+            int newHash = hash;
+            while (true) {
+                if (++newHash >= MAX_WORDS) newHash = 0;
+                lastUsedHash = Math.max(lastUsedHash, newHash);
+                if (HASH_TABLE[newHash] == 0) {
+                    HASH_TABLE[newHash] = wordHash;
+                    WORD_FLAGS[newHash] = 1;
+                    break;
                 }
-                if (wordHash != 0) {
-                    int hash = wordHash % MAX_WORDS;
-                    maxHash = Math.max(maxHash, hash + 1);
-                    if (HASH_TABLE[hash] == wordHash) {
-                        IS_WORD1[hash] = true;
-                    } else if (HASH_TABLE[hash] == 0) {
-                        HASH_TABLE[hash] = wordHash;
-                        IS_WORD1[hash] = true;
-                        uniqueCount++;
-                    } else {
-                        int probe = 1;
-                        int newHash = hash;
-                        while (true) {
-                            newHash = (hash + probe) % MAX_WORDS;
-                            maxHash = Math.max(maxHash, newHash + 1);
-                            if (HASH_TABLE[newHash] == 0) {
-                                HASH_TABLE[newHash] = wordHash;
-                                IS_WORD1[newHash] = true;
-                                uniqueCount++;
-                                break;
-                            } else if (HASH_TABLE[newHash] == wordHash) {
-                                IS_WORD1[newHash] = true;
-                                break;
-                            }
-                            probe++;
-                            if (probe >= MAX_WORDS) break;
-                        }
-                    }
+                if (HASH_TABLE[newHash] == wordHash) {
+                    WORD_FLAGS[newHash] = 1;
+                    break;
                 }
-                wordHash = 0;
-            } else {
-                wordHash = ((wordHash * 31) + c) & MASK;
+                if (newHash == hash) break;
             }
         }
         
         // 處理第二個文件
-        wordHash = 0;
-        int len2 = doc2.length();
-        for (int i = 0; i < len2; i++) {
+        int uniqueCount = count1;
+        int intersection = 0;
+        int wordHash = 0;
+        int len = doc2.length();
+        
+        for (int i = 0; i < len; i++) {
             char c = doc2.charAt(i);
-            if (c == ' ' || i == len2 - 1) {
-                if (i == len2 - 1 && c != ' ') {
-                    wordHash = ((wordHash * 31) + c) & MASK;
+            if (c == ' ' || i == len - 1) {
+                if (i == len - 1 && c != ' ') {
+                    wordHash = ((wordHash * PRIME) + c) & MASK;
                 }
                 if (wordHash != 0) {
                     int hash = wordHash % MAX_WORDS;
-                    maxHash = Math.max(maxHash, hash + 1);
+                    lastUsedHash = Math.max(lastUsedHash, hash);
+                    
                     if (HASH_TABLE[hash] == wordHash) {
-                        if (!IS_WORD2[hash]) {
-                            IS_WORD2[hash] = true;
-                            if (IS_WORD1[hash]) intersection++;
+                        if (WORD_FLAGS[hash] == 1) {
+                            WORD_FLAGS[hash] = 3;
+                            intersection++;
                         }
-                    } else if (HASH_TABLE[hash] == 0) {
-                        HASH_TABLE[hash] = wordHash;
-                        IS_WORD2[hash] = true;
-                        uniqueCount++;
-                    } else {
-                        int probe = 1;
-                        int newHash = hash;
-                        boolean found = false;
-                        while (true) {
-                            newHash = (hash + probe) % MAX_WORDS;
-                            maxHash = Math.max(maxHash, newHash + 1);
-                            if (HASH_TABLE[newHash] == wordHash) {
-                                if (!IS_WORD2[newHash]) {
-                                    IS_WORD2[newHash] = true;
-                                    if (IS_WORD1[newHash]) intersection++;
-                                }
-                                found = true;
-                                break;
-                            } else if (HASH_TABLE[newHash] == 0) {
-                                HASH_TABLE[newHash] = wordHash;
-                                IS_WORD2[newHash] = true;
-                                uniqueCount++;
-                                found = true;
-                                break;
-                            }
-                            probe++;
-                            if (probe >= MAX_WORDS) break;
-                        }
-                        if (!found) uniqueCount++;
+                        wordHash = 0;
+                        continue;
                     }
+                    
+                    if (HASH_TABLE[hash] == 0) {
+                        uniqueCount++;
+                        wordHash = 0;
+                        continue;
+                    }
+                    
+                    int newHash = hash;
+                    boolean found = false;
+                    while (true) {
+                        if (++newHash >= MAX_WORDS) newHash = 0;
+                        lastUsedHash = Math.max(lastUsedHash, newHash);
+                        if (HASH_TABLE[newHash] == wordHash) {
+                            if (WORD_FLAGS[newHash] == 1) {
+                                WORD_FLAGS[newHash] = 3;
+                                intersection++;
+                            }
+                            found = true;
+                            break;
+                        }
+                        if (HASH_TABLE[newHash] == 0) {
+                            uniqueCount++;
+                            found = true;
+                            break;
+                        }
+                        if (newHash == hash) break;
+                    }
+                    if (!found) uniqueCount++;
                 }
                 wordHash = 0;
             } else {
-                wordHash = ((wordHash * 31) + c) & MASK;
+                wordHash = ((wordHash * PRIME) + c) & MASK;
             }
         }
         
-        // 重置陣列（只重置使用過的部分）
-        resetArrays(maxHash);
+        // 重置使用過的部分
+        lastUsedHash = Math.min(lastUsedHash + 1, MAX_WORDS);
+        for (int i = 0; i < lastUsedHash; i++) {
+            HASH_TABLE[i] = 0;
+            WORD_FLAGS[i] = 0;
+        }
         
         return uniqueCount == 0 ? 0 : intersection / (double) uniqueCount;
     }
 }
+
