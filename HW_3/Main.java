@@ -2,7 +2,20 @@ import java.util.Scanner;
 
 public class Main {
     private static final int HASH_SIZE = 10007; // 保持原始大小
-
+      // 設置系統屬性以優化性能
+      static{
+      System.setProperty("java.awt.headless", "true");
+      System.setProperty("sun.rmi.dgc.server.gcInterval", "Long.MAX_VALUE");
+      System.setProperty("sun.rmi.dgc.client.gcInterval", "Long.MAX_VALUE");
+      // 禁用 JIT 編譯器優化
+      System.setProperty("java.compiler", "NONE");
+      // 設置記憶體管理
+      System.setProperty("java.lang.Integer.IntegerCache.high", "127");
+      // 設置 IO 優化
+      System.setProperty("java.nio.channels.spi.SelectorProvider", "sun.nio.ch.PollSelectorProvider");
+      // 設置線程優先級
+      Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+    }
     // 自定義簡單位圖實現
     static class BitMap {
         private final long[] bits;
