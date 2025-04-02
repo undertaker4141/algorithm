@@ -18,17 +18,17 @@ class Solution {
     }
 
     private static double processWithFastIO() throws Exception {
-        HashSet uniqueWordHashes = new HashSet();
+        HyperLogLog hll = new HyperLogLog();
         FastIO fastReader = new FastIO();
 
         while (fastReader.hasMoreWordsInLine()) {
             int wordHash = fastReader.nextWordHash();
             if (wordHash != 0) { // 0 表示無效單詞或行尾
-                uniqueWordHashes.add(wordHash);
+                hll.add(wordHash);
             }
         }
 
-        return uniqueWordHashes.size();
+        return hll.estimate();
     }
 
     /**
@@ -122,6 +122,73 @@ class Solution {
 
         public int size() {
             return elementCount;
+        }
+    }
+
+    /**
+     * HyperLogLog 演算法實現
+     * 使用 14 位元的暫存器，可達到約 0.81% 的標準誤差
+     */
+    static class HyperLogLog {
+        private static final int REGISTER_COUNT = 1 << 14; // 16384 個暫存器
+        private static final int REGISTER_MASK = REGISTER_COUNT - 1;
+        private static final double ALPHA = 0.7213 / (1 + 1.079 / REGISTER_COUNT);
+        private final byte[] registers = new byte[REGISTER_COUNT];
+
+        public HyperLogLog() {
+            // 初始化所有暫存器為 0
+            for (int i = 0; i < REGISTER_COUNT; i++) {
+                registers[i] = 0;
+            }
+        }
+
+        public void add(int hash) {
+            // 使用低 14 位元作為暫存器索引
+            int registerIndex = hash & REGISTER_MASK;
+            // 使用剩餘位元計算前導零的數量
+            int leadingZeros = countLeadingZeros(hash >>> 14);
+            // 更新對應暫存器的值
+            registers[registerIndex] = (byte) Math.max(registers[registerIndex], leadingZeros);
+        }
+
+        public double estimate() {
+            double sum = 0;
+            int zeroCount = 0;
+
+            // 計算調和平均數
+            for (int i = 0; i < REGISTER_COUNT; i++) {
+                if (registers[i] == 0) {
+                    zeroCount++;
+                }
+                sum += 1.0 / (1 << registers[i]);
+            }
+
+            // 計算基數估計值
+            double estimate = ALPHA * REGISTER_COUNT * REGISTER_COUNT / sum;
+
+            // 小範圍修正
+            if (estimate <= 2.5 * REGISTER_COUNT) {
+                if (zeroCount > 0) {
+                    estimate = REGISTER_COUNT * Math.log((double) REGISTER_COUNT / zeroCount);
+                }
+            }
+            // 大範圍修正
+            else if (estimate > (1L << 32) / 30.0) {
+                estimate = -Math.pow(2, 32) * Math.log(1 - estimate / Math.pow(2, 32));
+            }
+
+            return Math.round(estimate);
+        }
+
+        private int countLeadingZeros(int value) {
+            if (value == 0) return 32;
+            int n = 0;
+            if ((value & 0xFFFF0000) == 0) { n += 16; value <<= 16; }
+            if ((value & 0xFF000000) == 0) { n += 8;  value <<= 8;  }
+            if ((value & 0xF0000000) == 0) { n += 4;  value <<= 4;  }
+            if ((value & 0xC0000000) == 0) { n += 2;  value <<= 2;  }
+            if ((value & 0x80000000) == 0) { n += 1;  value <<= 1;  }
+            return n;
         }
     }
 
