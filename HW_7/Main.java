@@ -75,6 +75,7 @@ class Main {
     }
 }
 
+
 // FastIO 實現
 class FastReader {
     private byte[] buffer = new byte[1 << 16];
