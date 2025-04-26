@@ -10,8 +10,8 @@ class Main {
             arr[i] = reader.readInt();
         }
         
-        // 使用合併排序
-        mergeSort(arr, 0, n - 1);
+        // 使用MSD基數排序
+        msdRadixSort(arr);
         
         // 輸出結果
         FastWriter writer = new FastWriter();
@@ -25,53 +25,89 @@ class Main {
         writer.flush();
     }
     
-    // 合併排序實現
-    private static void mergeSort(int[] arr, int left, int right) {
-        if (left < right) {
-            int mid = left + (right - left) / 2;
-            mergeSort(arr, left, mid);
-            mergeSort(arr, mid + 1, right);
-            merge(arr, left, mid, right);
+    // MSD基數排序實現
+    private static void msdRadixSort(int[] arr) {
+        if (arr == null || arr.length <= 1) return;
+        
+        // 找出最大值和最小值
+        int max = arr[0];
+        int min = arr[0];
+        for (int i = 1; i < arr.length; i++) {
+            if (arr[i] > max) max = arr[i];
+            if (arr[i] < min) min = arr[i];
+        }
+        
+        // 處理全部都是0的情況
+        if (max == 0 && min == 0) return;
+        
+        // 分開處理負數和非負數
+        int[] negatives = new int[arr.length];
+        int[] nonNegatives = new int[arr.length];
+        int negCount = 0;
+        int nonNegCount = 0;
+        
+        for (int i = 0; i < arr.length; i++) {
+            if (arr[i] < 0) {
+                negatives[negCount++] = -arr[i]; // 將負數轉為正數處理
+            } else {
+                nonNegatives[nonNegCount++] = arr[i];
+            }
+        }
+        
+        // 縮小數組大小
+        int[] negArray = new int[negCount];
+        int[] nonNegArray = new int[nonNegCount];
+        System.arraycopy(negatives, 0, negArray, 0, negCount);
+        System.arraycopy(nonNegatives, 0, nonNegArray, 0, nonNegCount);
+        
+        // 分別對負數和非負數進行MSD排序
+        if (negCount > 0) msdSort(negArray, 0, negCount - 1, findMaxBit(Math.max(-min, max)));
+        if (nonNegCount > 0) msdSort(nonNegArray, 0, nonNegCount - 1, findMaxBit(Math.max(-min, max)));
+        
+        // 合併結果 (負數倒序，非負數正序)
+        int index = 0;
+        for (int i = negCount - 1; i >= 0; i--) {
+            arr[index++] = -negArray[i];
+        }
+        for (int i = 0; i < nonNegCount; i++) {
+            arr[index++] = nonNegArray[i];
         }
     }
     
-    private static void merge(int[] arr, int left, int mid, int right) {
-        int n1 = mid - left + 1;
-        int n2 = right - mid;
-        
-        int[] L = new int[n1];
-        int[] R = new int[n2];
-        
-        for (int i = 0; i < n1; i++) {
-            L[i] = arr[left + i];
+    // 找出最高有效位
+    private static int findMaxBit(int num) {
+        int bits = 0;
+        while (num > 0) {
+            bits++;
+            num >>= 1;
         }
-        for (int j = 0; j < n2; j++) {
-            R[j] = arr[mid + 1 + j];
-        }
+        return bits;
+    }
+    
+    // MSD排序實現
+    private static void msdSort(int[] arr, int left, int right, int bits) {
+        if (left >= right || bits == 0) return;
         
-        int i = 0, j = 0, k = left;
-        while (i < n1 && j < n2) {
-            if (L[i] <= R[j]) {
-                arr[k] = L[i];
+        int pivot = 1 << (bits - 1);
+        int i = left, j = right;
+        
+        // 按照當前位進行分組
+        while (i <= j) {
+            while (i <= j && (arr[i] & pivot) == 0) i++;
+            while (i <= j && (arr[j] & pivot) != 0) j--;
+            if (i < j) {
+                int temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
                 i++;
-            } else {
-                arr[k] = R[j];
-                j++;
+                j--;
             }
-            k++;
         }
         
-        while (i < n1) {
-            arr[k] = L[i];
-            i++;
-            k++;
-        }
-        
-        while (j < n2) {
-            arr[k] = R[j];
-            j++;
-            k++;
-        }
+        // 對左半部分進行遞歸排序（該位為0的組）
+        if (left < j) msdSort(arr, left, j, bits - 1);
+        // 對右半部分進行遞歸排序（該位為1的組）
+        if (i < right) msdSort(arr, i, right, bits - 1);
     }
 }
 
