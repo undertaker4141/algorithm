@@ -190,23 +190,20 @@ class Main {
             }
 
             if (!isCandidateDominated) {
-                // 2b. candidatePoint 未被支配，將其加入非支配集，並移除被它支配的點
-                int newNdsWriteIndex = 0; 
-                for (int k = 0; k < nonDominatedCount; k++) {
-                    // 如果 nonDominatedReferences[k] 不被 candidatePoint 支配，則保留它
-                    if (!dominates(candidatePoint, nonDominatedReferences[k], D)) {
-                        nonDominatedReferences[newNdsWriteIndex++] = nonDominatedReferences[k]; 
-                    }
-                }
-                nonDominatedReferences[newNdsWriteIndex] = candidatePoint; // 加入新的非支配點
-                nonDominatedCount = newNdsWriteIndex + 1;
+                // 2b. candidatePoint 未被支配，直接將其加入非支配集。
+                // 由於 allListings 已按字典序排序，且 candidatePoint (allListings[i])
+                // 在字典序上不小於任何已在 nonDominatedReferences 中的點 (來自 allListings[j] 其中 j < i)，
+                // 因此 candidatePoint 不可能支配任何已在 nonDominatedReferences 中的點。
+                // 所以，我們只需要將 candidatePoint 添加到列表末尾。
+                nonDominatedReferences[nonDominatedCount] = candidatePoint;
+                nonDominatedCount++;
             }
         }
 
         // 步驟3：輸出結果
         // 由於 allListings 已預先排序，且 nonDominatedReferences 的構建過程保持了字典序，
         // 因此 nonDominatedReferences[0...nonDominatedCount-1] 已是字典序。
-        // 不再需要 final sort: sortListings(nonDominatedReferences, nonDominatedCount, D);
+        // 不需要最終排序。
 
         for (int i = 0; i < nonDominatedCount; i++) {
             int[] pointToPrint = nonDominatedReferences[i]; 
