@@ -1,8 +1,8 @@
 class Main {
     // —— 高效輸入處理模組 ——
-    static final int INPUT_BUFFER_CAPACITY = 1 << 20; // 輸入緩衝區大小 (1MB)
-    static byte[] inputBuffer = new byte[INPUT_BUFFER_CAPACITY]; // 輸入緩衝區
-    static int inputBufferPosition = 0, inputBufferLength = 0; // 輸入緩衝區當前位置及已讀取長度
+    static final int INPUT_BUFFER_CAPACITY = 1 << 20;
+    static byte[] inputBuffer = new byte[INPUT_BUFFER_CAPACITY];
+    static int inputBufferPosition = 0, inputBufferLength = 0;
 
     static int fetchByte() throws Exception {
         if (inputBufferPosition >= inputBufferLength) {
@@ -31,12 +31,12 @@ class Main {
     }
 
     // —— 高效輸出處理模組 ——
-    static final int OUTPUT_BUFFER_CAPACITY = 1 << 20; // 輸出緩衝區大小 (1MB)
-    static byte[] outputBuffer = new byte[OUTPUT_BUFFER_CAPACITY]; // 輸出緩衝區
-    static int outputBufferPosition = 0; // 輸出緩衝區當前寫入位置
+    static final int OUTPUT_BUFFER_CAPACITY = 1 << 20;
+    static byte[] outputBuffer = new byte[OUTPUT_BUFFER_CAPACITY];
+    static int outputBufferPosition = 0;
 
     static final byte[] MIN_INT_BYTES = {'-','2','1','4','7','4','8','3','6','4','8'};
-    static byte[] tempNumWriteBuffer = new byte[11]; // 最大10位數字 + 1個符號
+    static byte[] tempNumWriteBuffer = new byte[11]; 
 
     static void appendInteger(int val) throws Exception {
         if (val == Integer.MIN_VALUE) {
@@ -98,7 +98,7 @@ class Main {
         }
     }
 
-    static boolean dominates(int[] l1, int[] l2, int D) { // l1 是否支配 l2
+    static boolean dominates(int[] l1, int[] l2, int D) { 
         boolean strictlyBetterInOneDim = false;
         for (int i = 0; i < D; i++) {
             if (l1[i] > l2[i]) { 
@@ -111,7 +111,7 @@ class Main {
         return strictlyBetterInOneDim;
     }
 
-    // ------ 自行實作的排序演算法 (合併排序) ------
+    // ------ 實作的排序演算法 (合併排序) ------
     static int compareListingsLexicographically(int[] l1, int[] l2, int D) {
         for (int k = 0; k < D; k++) {
             if (l1[k] < l2[k]) return -1;
@@ -122,7 +122,7 @@ class Main {
 
     static void merge(int[][] arr, int[][] temp, int left, int mid, int right, int D) {
         for (int i = left; i <= right; i++) {
-            temp[i] = arr[i]; // 複製參考
+            temp[i] = arr[i]; 
         }
 
         int i = left;     
@@ -142,7 +142,7 @@ class Main {
     
     static void standardMergeSortRecursive(int[][] arr, int[][] temp, int left, int right, int D) {
         if (left < right) {
-            int mid = left + (right - left) / 2; // 防溢出
+            int mid = left + (right - left) / 2; 
             standardMergeSortRecursive(arr, temp, left, mid, D);
             standardMergeSortRecursive(arr, temp, mid + 1, right, D);
             merge(arr, temp, left, mid, right, D);
@@ -167,21 +167,19 @@ class Main {
             }
         }
 
-        // 步驟1：對所有讀取的資料進行初始字典序排序
         if (N > 0) { 
             sortListings(allListings, N, D);
         }
 
-        // 步驟2：迭代式篩選非支配點
+
         int[][] nonDominatedReferences = new int[N][]; 
         int nonDominatedCount = 0;
 
-        // candidatePoint 將從已排序的 allListings 中選取
+
         for (int i = 0; i < N; i++) {
             int[] candidatePoint = allListings[i]; 
             boolean isCandidateDominated = false;
 
-            // 2a. 檢查 candidatePoint 是否被已有的非支配點支配
             for (int k = 0; k < nonDominatedCount; k++) {
                 if (dominates(nonDominatedReferences[k], candidatePoint, D)) {
                     isCandidateDominated = true;
@@ -190,20 +188,11 @@ class Main {
             }
 
             if (!isCandidateDominated) {
-                // 2b. candidatePoint 未被支配，直接將其加入非支配集。
-                // 由於 allListings 已按字典序排序，且 candidatePoint (allListings[i])
-                // 在字典序上不小於任何已在 nonDominatedReferences 中的點 (來自 allListings[j] 其中 j < i)，
-                // 因此 candidatePoint 不可能支配任何已在 nonDominatedReferences 中的點。
-                // 所以，我們只需要將 candidatePoint 添加到列表末尾。
                 nonDominatedReferences[nonDominatedCount] = candidatePoint;
                 nonDominatedCount++;
             }
         }
 
-        // 步驟3：輸出結果
-        // 由於 allListings 已預先排序，且 nonDominatedReferences 的構建過程保持了字典序，
-        // 因此 nonDominatedReferences[0...nonDominatedCount-1] 已是字典序。
-        // 不需要最終排序。
 
         for (int i = 0; i < nonDominatedCount; i++) {
             int[] pointToPrint = nonDominatedReferences[i]; 
