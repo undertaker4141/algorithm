@@ -102,7 +102,7 @@ class Main {
         int[] point;
         KDTNode left;
         KDTNode right;
-        int axis;
+        int axis; // 分裂維度
 
         KDTNode(int[] point, int axis) {
             this.point = point;
@@ -116,31 +116,24 @@ class Main {
         if (root == null) {
             return new KDTNode(point, depth % totalDimensions);
         }
-
-        int currentAxis = root.axis; 
-
+        int currentAxis = root.axis;
         if (point[currentAxis] < root.point[currentAxis]) {
             root.left = insertIntoKDT(root.left, point, totalDimensions, depth + 1);
         } else {
-
             root.right = insertIntoKDT(root.right, point, totalDimensions, depth + 1);
         }
         return root;
     }
 
-
     static boolean isDominatedByKDT(KDTNode node, int[] candidate, int totalDimensions) {
         if (node == null) {
-            return false; 
+            return false;
         }
-
         if (dominates(node.point, candidate, totalDimensions)) {
             return true;
         }
-
         int currentAxis = node.axis;
         KDTNode nearChild, farChild;
-
         if (candidate[currentAxis] < node.point[currentAxis]) {
             nearChild = node.left;
             farChild = node.right;
@@ -148,29 +141,18 @@ class Main {
             nearChild = node.right;
             farChild = node.left;
         }
-
         if (isDominatedByKDT(nearChild, candidate, totalDimensions)) {
             return true;
         }
-
-
-
-        if (farChild == node.right) { 
-            if (node.point[currentAxis] <= candidate[currentAxis]) { 
-                 if (isDominatedByKDT(farChild, candidate, totalDimensions)) {
-                    return true;
-                }
-            }
-
-        } else { 
-
-            if (isDominatedByKDT(farChild, candidate, totalDimensions)) {
+        if (farChild == node.right && node.point[currentAxis] > candidate[currentAxis]) {
+            // 不搜索 farChild (剪枝)
+        } else {
+             if (isDominatedByKDT(farChild, candidate, totalDimensions)) {
                 return true;
             }
         }
         return false;
     }
-
 
     static boolean dominates(int[] l1, int[] l2, int D) { 
         boolean strictlyBetterInOneDim = false;
@@ -185,7 +167,9 @@ class Main {
         return strictlyBetterInOneDim;
     }
 
-    // ------ 合併排序 (用於初始排序) ------
+    // ------ 快速排序 (Quick Sort) 實現 ------
+    static final int INSERTION_SORT_THRESHOLD_QS = 16; 
+
     static int compareListingsLexicographically(int[] l1, int[] l2, int D) {
         for (int k = 0; k < D; k++) {
             if (l1[k] < l2[k]) return -1;
@@ -194,37 +178,67 @@ class Main {
         return 0; 
     }
 
-    static void merge(int[][] arr, int[][] temp, int left, int mid, int right, int D_total) {
-        for (int i = left; i <= right; i++) {
-            temp[i] = arr[i]; 
-        }
-        int i = left, j = mid + 1, k = left;
-        while (i <= mid && j <= right) {
-            if (compareListingsLexicographically(temp[i], temp[j], D_total) <= 0) { 
-                arr[k++] = temp[i++];
-            } else {
-                arr[k++] = temp[j++];
-            }
-        }
-        while (i <= mid) arr[k++] = temp[i++]; 
-        while (j <= right) arr[k++] = temp[j++];
-    }
-    
-    static void standardMergeSortRecursive(int[][] arr, int[][] temp, int left, int right, int D_total) {
-        if (left < right) {
-            int mid = left + (right - left) / 2; 
-            standardMergeSortRecursive(arr, temp, left, mid, D_total);
-            standardMergeSortRecursive(arr, temp, mid + 1, right, D_total);
-            merge(arr, temp, left, mid, right, D_total);
-        }
-    }
-    
-    static void sortListingsByMergeSort(int[][] listings, int numElements, int D_total) {
-        if (listings == null || numElements <= 1) return; 
-        int[][] temp = new int[numElements][]; 
-        standardMergeSortRecursive(listings, temp, 0, numElements - 1, D_total); 
+    static void swap(int[][] arr, int i, int j) {
+        int[] temp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = temp;
     }
 
+    static void insertionSortRange(int[][] arr, int left, int right, int D) {
+        for (int i = left + 1; i <= right; i++) {
+            int[] key = arr[i]; 
+            int j = i - 1;
+            while (j >= left && compareListingsLexicographically(arr[j], key, D) > 0) {
+                arr[j + 1] = arr[j]; 
+                j = j - 1;
+            }
+            arr[j + 1] = key; 
+        }
+    }
+    
+    // Lomuto 分割方案，使用三數取中選擇基準元
+    static int partition(int[][] arr, int low, int high, int D) {
+        int mid = low + (high - low) / 2;
+
+        if (compareListingsLexicographically(arr[low], arr[mid], D) > 0) swap(arr, low, mid);
+        if (compareListingsLexicographically(arr[low], arr[high], D) > 0) swap(arr, low, high);
+        if (compareListingsLexicographically(arr[mid], arr[high], D) > 0) swap(arr, mid, high);
+        int[] pivotValue = arr[mid]; 
+        swap(arr, mid, high);
+
+        int i = low - 1; 
+        for (int j = low; j < high; j++) { 
+            if (compareListingsLexicographically(arr[j], pivotValue, D) <= 0) {
+                i++;
+                swap(arr, i, j);
+            }
+        }
+        swap(arr, i + 1, high);
+        return i + 1;
+    }
+
+    static void quickSortRecursive(int[][] arr, int low, int high, int D) {
+        if (low < high) {
+            if (high - low + 1 < INSERTION_SORT_THRESHOLD_QS) {
+                insertionSortRange(arr, low, high, D);
+            } else {
+                int pivotIndex = partition(arr, low, high, D);
+                if (pivotIndex - low < high - pivotIndex) {
+                    quickSortRecursive(arr, low, pivotIndex - 1, D);
+                    quickSortRecursive(arr, pivotIndex + 1, high, D);
+                } else {
+                    quickSortRecursive(arr, pivotIndex + 1, high, D);
+                    quickSortRecursive(arr, low, pivotIndex - 1, D);
+                }
+            }
+        }
+    }
+
+    static void sortListingsByQuickSort(int[][] listings, int numElements, int D) {
+        if (listings == null || numElements <= 1) return;
+        quickSortRecursive(listings, 0, numElements - 1, D);
+    }
+    
     // ------ 主邏輯 ------
     public static void main(String[] args) throws Exception {
         int N = scanInteger();
@@ -238,7 +252,7 @@ class Main {
         }
 
         if (N > 0) { 
-            sortListingsByMergeSort(allListings, N, D); 
+            sortListingsByQuickSort(allListings, N, D); 
         }
 
         KDTNode ndRoot = null; 
@@ -254,7 +268,6 @@ class Main {
             }
 
             if (!isDominated) {
-                
                 outputListings[outputCount++] = candidatePoint;
                 ndRoot = insertIntoKDT(ndRoot, candidatePoint, D, 0); 
             }
