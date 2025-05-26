@@ -167,14 +167,12 @@ class Main {
             }
         }
 
-        // 新增步驟：對所有讀取的資料進行初始排序
-        if (N > 0) { // 只有在有資料時才排序
+        // 步驟1：對所有讀取的資料進行初始字典序排序
+        if (N > 0) { 
             sortListings(allListings, N, D);
         }
 
-        // 迭代式篩選非支配點
-        // nonDominatedReferences 儲存指向 allListings 中非支配點的實際 int[] 參考
-        // 由於 allListings 本身已經排序，這裡的 nonDominatedReferences 陣列將會引用已排序的 allListings 中的元素
+        // 步驟2：迭代式篩選非支配點
         int[][] nonDominatedReferences = new int[N][]; 
         int nonDominatedCount = 0;
 
@@ -183,7 +181,7 @@ class Main {
             int[] candidatePoint = allListings[i]; 
             boolean isCandidateDominated = false;
 
-            // 1. 檢查 candidatePoint 是否被已有的非支配點支配
+            // 2a. 檢查 candidatePoint 是否被已有的非支配點支配
             for (int k = 0; k < nonDominatedCount; k++) {
                 if (dominates(nonDominatedReferences[k], candidatePoint, D)) {
                     isCandidateDominated = true;
@@ -192,9 +190,10 @@ class Main {
             }
 
             if (!isCandidateDominated) {
-                // candidatePoint 未被支配，將其加入非支配集，並移除被它支配的點
+                // 2b. candidatePoint 未被支配，將其加入非支配集，並移除被它支配的點
                 int newNdsWriteIndex = 0; 
                 for (int k = 0; k < nonDominatedCount; k++) {
+                    // 如果 nonDominatedReferences[k] 不被 candidatePoint 支配，則保留它
                     if (!dominates(candidatePoint, nonDominatedReferences[k], D)) {
                         nonDominatedReferences[newNdsWriteIndex++] = nonDominatedReferences[k]; 
                     }
@@ -204,16 +203,11 @@ class Main {
             }
         }
 
-        // nonDominatedReferences[0...nonDominatedCount-1] 包含了所有非支配點的參考
-        // 由於 candidatePoint 是從已排序的 allListings 中選取的，
-        // 並且 nonDominatedReferences 中的點在被加入時也是非支配的，
-        // nonDominatedReferences 本身可能不完全按字典序排列（因為移除和加入的順序問題）。
-        // 因此，最終仍需要對 nonDominatedReferences 進行排序以確保輸出順序。
-        if (nonDominatedCount > 0) { // 只有在有非支配點時才排序
-             sortListings(nonDominatedReferences, nonDominatedCount, D);
-        }
+        // 步驟3：輸出結果
+        // 由於 allListings 已預先排序，且 nonDominatedReferences 的構建過程保持了字典序，
+        // 因此 nonDominatedReferences[0...nonDominatedCount-1] 已是字典序。
+        // 不再需要 final sort: sortListings(nonDominatedReferences, nonDominatedCount, D);
 
-        // 輸出結果
         for (int i = 0; i < nonDominatedCount; i++) {
             int[] pointToPrint = nonDominatedReferences[i]; 
             for (int k = 0; k < D; k++) {
