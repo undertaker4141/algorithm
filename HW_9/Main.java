@@ -1,107 +1,191 @@
-class Main {
-    // —— 極限輸入緩衝 ——
-    static final int IN_BUF = 1 << 20;
-    static byte[] inBuf = new byte[IN_BUF];
-    static int inPos = 0, inLen = 0;
-    static int read() throws Exception {
-        if (inPos >= inLen) {
-            inLen = System.in.read(inBuf);
-            inPos = 0;
-            if (inLen <= 0) return -1;
+class Main { // 類名變更
+    // —— 高效輸入處理模組 ——
+    static final int INPUT_BUFFER_CAPACITY = 1 << 20; // 常數名變更
+    static byte[] inputBuffer = new byte[INPUT_BUFFER_CAPACITY]; // 變數名變更
+    static int inputBufferPosition = 0, inputBufferLength = 0; // 變數名變更
+
+    static int fetchByte() throws Exception { // 方法名變更
+        if (inputBufferPosition >= inputBufferLength) {
+            inputBufferLength = System.in.read(inputBuffer);
+            inputBufferPosition = 0;
+            if (inputBufferLength <= 0) return -1; // 流結束
         }
-        return inBuf[inPos++] & 0xFF;
-    }
-    static int readInt() throws Exception {
-        int c, x = 0, sign = 1;
-        do { c = read(); } while (c != -1 && c != '-' && (c < '0' || c > '9'));
-        if (c == '-') { sign = -1; c = read(); }
-        for (; c >= '0' && c <= '9'; c = read()) x = x * 10 + (c - '0');
-        return x * sign;
+        return inputBuffer[inputBufferPosition++] & 0xFF; // 返回讀取的字節
     }
 
-    // —— 極限輸出緩衝 ——
-    static final int OUT_BUF = 1 << 20;
-    static byte[] outBuf = new byte[OUT_BUF];
-    static int outPos = 0;
-    static void writeInt(int v) {
-        if (v == 0) { outBuf[outPos++] = '0'; return; }
-        if (v < 0) { outBuf[outPos++] = '-'; v = -v; }
-        int start = outPos, len = 0;
-        while (v > 0) {
-            outBuf[outPos++] = (byte)('0' + (v % 10)); v /= 10; len++;
+    static int scanInteger() throws Exception { // 方法名變更
+        int character, value = 0, multiplier = 1; // 變數名變更
+        do {
+            character = fetchByte();
+        } while (character != -1 && character != '-' && (character < '0' || character > '9')); // 跳過非數字和非負號字符
+
+        if (character == '-') {
+            multiplier = -1;
+            character = fetchByte();
         }
-        for (int i = 0; i < len/2; i++) {
-            byte t = outBuf[start+i]; outBuf[start+i] = outBuf[start+len-1-i]; outBuf[start+len-1-i] = t;
+        for (; character >= '0' && character <= '9'; character = fetchByte()) {
+            value = value * 10 + (character - '0'); // 構建數字
+        }
+        return value * multiplier;
+    }
+
+    // —— 高效輸出處理模組 ——
+    static final int OUTPUT_BUFFER_CAPACITY = 1 << 20; // 常數名變更
+    static byte[] outputBuffer = new byte[OUTPUT_BUFFER_CAPACITY]; // 變數名變更
+    static int outputBufferPosition = 0; // 變數名變更
+
+    static void appendInteger(int val) { // 方法名變更
+        if (val == 0) {
+            outputBuffer[outputBufferPosition++] = '0';
+            return;
+        }
+        if (val < 0) {
+            outputBuffer[outputBufferPosition++] = '-';
+            val = -val; // 轉為正數處理
+        }
+        int startIndex = outputBufferPosition; // 記錄數字開始位置
+        int count = 0; // 記錄數字長度
+        while (val > 0) {
+            outputBuffer[outputBufferPosition++] = (byte) ('0' + (val % 10));
+            val /= 10;
+            count++;
+        }
+        // 反轉數字字元序列
+        int left = startIndex;
+        int right = startIndex + count - 1;
+        while (left < right) {
+            byte temp = outputBuffer[left];
+            outputBuffer[left] = outputBuffer[right];
+            outputBuffer[right] = temp;
+            left++;
+            right--;
         }
     }
-    static void writeChar(char c) { outBuf[outPos++] = (byte)c; }
-    static void flushOut() throws Exception { System.out.write(outBuf, 0, outPos); }
+
+    static void appendCharacter(char ch) { // 方法名變更
+        outputBuffer[outputBufferPosition++] = (byte) ch;
+    }
+
+    static void commitOutput() throws Exception { // 方法名變更
+        System.out.write(outputBuffer, 0, outputBufferPosition);
+    }
 
     public static void main(String[] args) throws Exception {
-        int N = readInt();
-        int[] prices = new int[N], times = new int[N];
-        int maxP = 0;
-        for (int i = 0; i < N; i++) {
-            int p = readInt(), t = readInt();
-            prices[i] = p; times[i] = t;
-            if (p > maxP) maxP = p;
-        }
+        int itemCount = scanInteger(); // 變數名變更 (N)
+        int[] itemPrices = new int[itemCount]; // 變數名變更 (prices)
+        int[] itemProcessingTimes = new int[itemCount]; // 變數名變更 (times)
+        int highestPrice = 0; // 變數名變更 (maxP)
 
-        final int INF = Integer.MAX_VALUE;
-        int[] minTime = new int[maxP + 1];
-        int[] stamp = new int[maxP + 1];
-        int curStamp = 1;
-        int[] keep = new int[maxP + 1];
-
-        // 2. 桶更新（延遲初始化）
-        for (int i = 0; i < N; i++) {
-            int p = prices[i], t = times[i];
-            if (stamp[p] != curStamp) { stamp[p] = curStamp; minTime[p] = INF; }
-            if (t < minTime[p]) minTime[p] = t;
-        }
-
-        // 3. 前綴掃描（分支消除 + 四路展開）
-        int best = INF;
-        int p = 0;
-        for (; p + 3 <= maxP; p += 4) {
-            int idx0 = p;
-            if (stamp[idx0] != curStamp) { stamp[idx0] = curStamp; minTime[idx0] = INF; }
-            int t0 = minTime[idx0]; int less0 = (t0 < best) ? 1 : 0;
-            best = less0 * t0 + (1 - less0) * best;
-            keep[idx0] |= less0;
-
-            int idx1 = p + 1;
-            if (stamp[idx1] != curStamp) { stamp[idx1] = curStamp; minTime[idx1] = INF; }
-            int t1 = minTime[idx1]; int less1 = (t1 < best) ? 1 : 0;
-            best = less1 * t1 + (1 - less1) * best;
-            keep[idx1] |= less1;
-
-            int idx2 = p + 2;
-            if (stamp[idx2] != curStamp) { stamp[idx2] = curStamp; minTime[idx2] = INF; }
-            int t2 = minTime[idx2]; int less2 = (t2 < best) ? 1 : 0;
-            best = less2 * t2 + (1 - less2) * best;
-            keep[idx2] |= less2;
-
-            int idx3 = p + 3;
-            if (stamp[idx3] != curStamp) { stamp[idx3] = curStamp; minTime[idx3] = INF; }
-            int t3 = minTime[idx3]; int less3 = (t3 < best) ? 1 : 0;
-            best = less3 * t3 + (1 - less3) * best;
-            keep[idx3] |= less3;
-        }
-        for (; p <= maxP; p++) {
-            if (stamp[p] != curStamp) { stamp[p] = curStamp; minTime[p] = INF; }
-            int tv = minTime[p]; int less = (tv < best) ? 1 : 0;
-            best = less * tv + (1 - less) * best;
-            keep[p] |= less;
-        }
-
-        // 4. 原序輸出
-        for (int i = 0; i < N; i++) {
-            int pp = prices[i], tt = times[i];
-            if (keep[pp] == 1 && minTime[pp] == tt) {
-                writeInt(pp); writeChar(' '); writeInt(tt); writeChar('\n');
+        for (int i = 0; i < itemCount; i++) {
+            int p_val = scanInteger(); // 局部變數名變更
+            int t_val = scanInteger(); // 局部變數名變更
+            itemPrices[i] = p_val;
+            itemProcessingTimes[i] = t_val;
+            if (p_val > highestPrice) {
+                highestPrice = p_val;
             }
         }
-        flushOut();
+
+        final int UNINITIALIZED_TIME = Integer.MAX_VALUE; // 常數名變更 (INF)
+        int[] minProcessingTimeForPrice = new int[highestPrice + 1]; // 變數名變更 (minTime)
+        int[] priceVisitMarker = new int[highestPrice + 1]; // 變數名變更 (stamp)
+        int currentVisitID = 1; // 變數名變更 (curStamp)
+        int[] isCandidateOffer = new int[highestPrice + 1]; // 變數名變更 (keep)
+
+        // 階段2: 更新價格桶內的最小處理時間 (使用延遲初始化策略)
+        for (int i = 0; i < itemCount; i++) {
+            int price = itemPrices[i];
+            int time = itemProcessingTimes[i];
+            // 如果該價格桶未被當前訪問ID標記，則初始化
+            if (priceVisitMarker[price] != currentVisitID) {
+                priceVisitMarker[price] = currentVisitID;
+                minProcessingTimeForPrice[price] = UNINITIALIZED_TIME;
+            }
+            // 更新該價格對應的最小處理時間
+            if (time < minProcessingTimeForPrice[price]) {
+                minProcessingTimeForPrice[price] = time;
+            }
+        }
+
+        // 階段3: 前綴掃描以確定候選商品 (優化：分支消除 + 四路迴圈展開)
+        int bestTimeOverall = UNINITIALIZED_TIME; // 變數名變更 (best)
+        int currentPriceIndex = 0; // 變數名變更 (p)
+
+        // 四路展開處理大部分數據
+        for (; currentPriceIndex + 3 <= highestPrice; currentPriceIndex += 4) {
+            // 處理第0個價格
+            int p0 = currentPriceIndex;
+            if (priceVisitMarker[p0] != currentVisitID) { // 延遲初始化
+                priceVisitMarker[p0] = currentVisitID;
+                minProcessingTimeForPrice[p0] = UNINITIALIZED_TIME;
+            }
+            int time0 = minProcessingTimeForPrice[p0];
+            if (time0 < bestTimeOverall) { // 標準 if 判斷
+                bestTimeOverall = time0;
+                isCandidateOffer[p0] = 1; // 標記為候選
+            }
+
+            // 處理第1個價格
+            int p1 = currentPriceIndex + 1;
+            if (priceVisitMarker[p1] != currentVisitID) {
+                priceVisitMarker[p1] = currentVisitID;
+                minProcessingTimeForPrice[p1] = UNINITIALIZED_TIME;
+            }
+            int time1 = minProcessingTimeForPrice[p1];
+            if (time1 < bestTimeOverall) {
+                bestTimeOverall = time1;
+                isCandidateOffer[p1] = 1;
+            }
+
+            // 處理第2個價格
+            int p2 = currentPriceIndex + 2;
+            if (priceVisitMarker[p2] != currentVisitID) {
+                priceVisitMarker[p2] = currentVisitID;
+                minProcessingTimeForPrice[p2] = UNINITIALIZED_TIME;
+            }
+            int time2 = minProcessingTimeForPrice[p2];
+            if (time2 < bestTimeOverall) {
+                bestTimeOverall = time2;
+                isCandidateOffer[p2] = 1;
+            }
+
+            // 處理第3個價格
+            int p3 = currentPriceIndex + 3;
+            if (priceVisitMarker[p3] != currentVisitID) {
+                priceVisitMarker[p3] = currentVisitID;
+                minProcessingTimeForPrice[p3] = UNINITIALIZED_TIME;
+            }
+            int time3 = minProcessingTimeForPrice[p3];
+            if (time3 < bestTimeOverall) {
+                bestTimeOverall = time3;
+                isCandidateOffer[p3] = 1;
+            }
+        }
+        // 處理剩餘的數據 (不足四個的部分)
+        for (; currentPriceIndex <= highestPrice; currentPriceIndex++) {
+            if (priceVisitMarker[currentPriceIndex] != currentVisitID) {
+                priceVisitMarker[currentPriceIndex] = currentVisitID;
+                minProcessingTimeForPrice[currentPriceIndex] = UNINITIALIZED_TIME;
+            }
+            int currentTimeVal = minProcessingTimeForPrice[currentPriceIndex]; // 局部變數名變更 (tv)
+            if (currentTimeVal < bestTimeOverall) {
+                bestTimeOverall = currentTimeVal;
+                isCandidateOffer[currentPriceIndex] = 1;
+            }
+        }
+
+        // 階段4: 按照原始輸入順序輸出結果
+        for (int i = 0; i < itemCount; i++) {
+            int originalPrice = itemPrices[i]; // 變數名變更 (pp)
+            int originalTime = itemProcessingTimes[i]; // 變數名變更 (tt)
+            // 檢查是否為候選商品，並且其時間確實是該價格下的最小時間
+            if (isCandidateOffer[originalPrice] == 1 && minProcessingTimeForPrice[originalPrice] == originalTime) {
+                appendInteger(originalPrice);
+                appendCharacter(' ');
+                appendInteger(originalTime);
+                appendCharacter('\n');
+            }
+        }
+        commitOutput(); // 刷新輸出緩衝區
     }
 }
